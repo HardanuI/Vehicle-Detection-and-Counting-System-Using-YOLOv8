@@ -320,6 +320,257 @@ button:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--ink)
   padding-top: 16px;
 }
 
-@media (max-width: 800px) {
+/* ============================================================
+   LAYOUT DUA KOLOM & TOP-DOWN TRAFFIC TRACKER SIDEBAR
+   ============================================================ */
+.layout-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+  width: 100%;
+}
+
+.main-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.main-col .card {
+  max-width: 100%;
+  margin-bottom: 0;
+}
+
+.sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+}
+
+.tracker-card {
+  background: #fff;
+  border: 4px solid var(--ink);
+  box-shadow: 10px 10px 0 var(--ink);
+  padding: 22px;
+  position: relative;
+}
+
+.tracker-card::before {
+  content: "SIMULATOR";
+  position: absolute;
+  top: -16px;
+  left: 18px;
+  background: var(--red);
+  color: #fff;
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 3px 12px;
+  border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.tracker-card h3 {
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.tracker-sub {
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+  color: #333;
+}
+
+.road-viewport {
+  position: relative;
+  width: 100%;
+  height: 310px;
+  background: #1e1e1e;
+  border: 4px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+/* Garis pembatas bahu jalan kiri & kanan */
+.road-viewport::before,
+.road-viewport::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #555;
+  z-index: 1;
+}
+.road-viewport::before { left: 16px; }
+.road-viewport::after { right: 16px; }
+
+/* Marka jalan putus-putus bergerak di tengah */
+.lane-divider {
+  position: absolute;
+  top: -60px;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  transform: translateX(-50%);
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.7) 0px,
+    rgba(255, 255, 255, 0.7) 24px,
+    transparent 24px,
+    transparent 48px
+  );
+  animation: roadScroll 1.2s linear infinite;
+  z-index: 1;
+}
+
+@keyframes roadScroll {
+  from { transform: translate(-50%, 0); }
+  to { transform: translate(-50%, 48px); }
+}
+
+/* Garis deteksi kuning berkedip (LineZone) */
+.detect-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--yellow);
+  box-shadow: 0 0 10px var(--yellow);
+  transform: translateY(-50%);
+  z-index: 5;
+  transition: background 0.1s, height 0.1s, box-shadow 0.1s;
+}
+
+.detect-line::after {
+  content: "LINE ZONE";
+  position: absolute;
+  right: 8px;
+  top: -20px;
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+  font-size: 0.62rem;
+  background: var(--yellow);
+  color: var(--ink);
+  padding: 1px 5px;
+  border: 2px solid var(--ink);
+  letter-spacing: 1px;
+}
+
+.detect-line.flash {
+  background: var(--green);
+  height: 7px;
+  box-shadow: 0 0 18px var(--green), 0 0 30px #fff;
+}
+
+/* Kendaraan Top-Down dengan Bounding Box YOLO */
+.sim-car {
+  position: absolute;
+  width: 46px;
+  height: 74px;
+  border: 2px solid var(--green);
+  background: rgba(0, 224, 106, 0.12);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s;
+}
+
+.sim-car.counted {
+  border-color: var(--yellow);
+  background: rgba(255, 212, 0, 0.18);
+}
+
+.sim-car-body {
+  width: 30px;
+  height: 54px;
+  border: 3px solid var(--ink);
+  position: relative;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.6);
+}
+
+.sim-car-body::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  height: 12px;
+  background: #1a2634;
+  border: 2px solid var(--ink);
+}
+
+/* Arah kaca depan berdasarkan lajur */
+.sim-car.down .sim-car-body::before { bottom: 6px; }
+.sim-car.up .sim-car-body::before { top: 6px; }
+
+.sim-car-tag {
+  position: absolute;
+  top: -18px;
+  left: -2px;
+  background: var(--green);
+  color: var(--ink);
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+  font-size: 0.58rem;
+  padding: 1px 4px;
+  border: 1.5px solid var(--ink);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.sim-car.counted .sim-car-tag {
+  background: var(--yellow);
+}
+
+/* Statistik Simulasi */
+.sim-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.sim-stat-box {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.sim-stat-box .lbl {
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+  font-size: 0.62rem;
+  background: var(--yellow);
+  border: 1.5px solid var(--ink);
+  padding: 1px 4px;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.sim-stat-box .num {
+  font-size: 1.35rem;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+
+@media (max-width: 900px) {
+  body { padding: 20px; }
+  .layout-wrapper {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    position: static;
+  }
   .grid-analisis { grid-template-columns: 1fr; }
 }

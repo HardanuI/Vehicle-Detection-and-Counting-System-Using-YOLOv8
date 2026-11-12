@@ -18,8 +18,164 @@
     <a class="tab {{ 'active' if request.path == '/analisis' }}" href="/analisis">Analisis</a>
   </nav>
 
-  {% block content %}{% endblock %}
+  <div class="layout-wrapper">
+    <div class="main-col">
+      {% block content %}{% endblock %}
+    </div>
+
+    <aside class="sidebar">
+      <div class="tracker-card">
+        <h3>Top-Down Tracker</h3>
+        <p class="tracker-sub">// Simulasi ByteTrack + LineZone</p>
+
+        <div class="road-viewport" id="simRoad">
+          <div class="lane-divider"></div>
+          <div class="detect-line" id="simDetectLine"></div>
+        </div>
+
+        <div class="sim-stats">
+          <div class="sim-stat-box">
+            <span class="lbl">MASUK</span>
+            <div class="num" id="simIn">0</div>
+          </div>
+          <div class="sim-stat-box">
+            <span class="lbl">KELUAR</span>
+            <div class="num" id="simOut">0</div>
+          </div>
+          <div class="sim-stat-box" style="background:var(--green);">
+            <span class="lbl">TOTAL</span>
+            <div class="num" id="simTotal">0</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
 
   <p class="note">Car Counter — Proyek Akhir Pengolahan Citra Digital</p>
+
+  <script>
+    (function() {
+      const road = document.getElementById('simRoad');
+      const detectLine = document.getElementById('simDetectLine');
+      const elIn = document.getElementById('simIn');
+      const elOut = document.getElementById('simOut');
+      const elTotal = document.getElementById('simTotal');
+
+      if (!road) return;
+
+      const COLORS = ['#ff2e2e', '#2e5bff', '#ffd400', '#b44cff', '#ffffff', '#00e06a'];
+      const ROAD_HEIGHT = 310;
+      const LINE_Y = ROAD_HEIGHT / 2;
+      const CAR_HEIGHT = 74;
+
+      let countIn = 0;
+      let countOut = 0;
+      let nextTrackerId = 1;
+      const activeCars = [];
+
+      function triggerLineFlash() {
+        detectLine.classList.add('flash');
+        setTimeout(() => {
+          detectLine.classList.remove('flash');
+        }, 180);
+      }
+
+      function spawnCar(direction) {
+        // Cek jarak aman agar mobil tidak saling bertumpuk di lajur yang sama
+        const sameLaneCars = activeCars.filter(c => c.dir === direction);
+        for (const c of sameLaneCars) {
+          if (direction === 'down' && c.y < 110) return;
+          if (direction === 'up' && c.y > ROAD_HEIGHT - 180) return;
+        }
+
+        const carEl = document.createElement('div');
+        carEl.className = 'sim-car ' + direction;
+
+        const bodyEl = document.createElement('div');
+        bodyEl.className = 'sim-car-body';
+        bodyEl.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+        const conf = (0.82 + Math.random() * 0.16).toFixed(2);
+        const tid = String(nextTrackerId++).padStart(2, '0');
+        const tagEl = document.createElement('div');
+        tagEl.className = 'sim-car-tag';
+        tagEl.textContent = '#' + tid + ' ' + conf;
+
+        carEl.appendChild(tagEl);
+        carEl.appendChild(bodyEl);
+        road.appendChild(carEl);
+
+        // Lajur kiri (down / masuk) atau lajur kanan (up / keluar)
+        const xPos = direction === 'down' ? 42 : 172;
+        const startY = direction === 'down' ? -CAR_HEIGHT - 10 : ROAD_HEIGHT + 10;
+        const speed = 1.4 + Math.random() * 1.1;
+
+        carEl.style.left = xPos + 'px';
+        carEl.style.top = startY + 'px';
+
+        activeCars.push({
+          el: carEl,
+          dir: direction,
+          y: startY,
+          speed: speed,
+          counted: false
+        });
+      }
+
+      function updateSimulation() {
+        for (let i = activeCars.length - 1; i >= 0; i--) {
+          const car = activeCars[i];
+          if (car.dir === 'down') {
+            car.y += car.speed;
+            const centerY = car.y + CAR_HEIGHT / 2;
+            if (!car.counted && centerY >= LINE_Y) {
+              car.counted = true;
+              car.el.classList.add('counted');
+              countIn++;
+              elIn.textContent = countIn;
+              elTotal.textContent = countIn + countOut;
+              triggerLineFlash();
+            }
+            if (car.y > ROAD_HEIGHT + 20) {
+              car.el.remove();
+              activeCars.splice(i, 1);
+            } else {
+              car.el.style.top = car.y + 'px';
+            }
+          } else {
+            car.y -= car.speed;
+            const centerY = car.y + CAR_HEIGHT / 2;
+            if (!car.counted && centerY <= LINE_Y) {
+              car.counted = true;
+              car.el.classList.add('counted');
+              countOut++;
+              elOut.textContent = countOut;
+              elTotal.textContent = countIn + countOut;
+              triggerLineFlash();
+            }
+            if (car.y < -CAR_HEIGHT - 25) {
+              car.el.remove();
+              activeCars.splice(i, 1);
+            } else {
+              car.el.style.top = car.y + 'px';
+            }
+          }
+        }
+        requestAnimationFrame(updateSimulation);
+      }
+
+      // Munculkan mobil pertama saat halaman dimuat
+      spawnCar('down');
+      setTimeout(() => spawnCar('up'), 700);
+
+      // Interval spawn otomatis di kedua lajur
+      setInterval(() => {
+        const dir = Math.random() < 0.55 ? 'down' : 'up';
+        spawnCar(dir);
+      }, 1100);
+
+      requestAnimationFrame(updateSimulation);
+    })();
+  </script>
 </body>
 </html>
