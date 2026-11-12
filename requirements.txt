@@ -1,0 +1,11 @@
+flask
+ultralytics
+supervision<0.31.0
+opencv-python
+numpy
+matplotlib
+werkzeug
+waitress
+imageio-ffmpeg
+waitress
+imageio-ffmpeg

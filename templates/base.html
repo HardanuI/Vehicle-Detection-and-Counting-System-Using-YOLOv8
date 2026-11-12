@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Counter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="stripe"></div>
+  <h1><a href="/" style="color:inherit;text-decoration:none;"><span class="accent">CAR</span> COUNTER</a></h1>
+  <p class="subtitle">// Deteksi &amp; Hitung Mobil — YOLOv8 + Supervision</p>
+
+  <nav class="tabs">
+    <a class="tab {{ 'active' if request.path == '/gambar' or request.path == '/' }}" href="/gambar">Gambar</a>
+    <a class="tab {{ 'active' if request.path == '/video' }}" href="/video">Video</a>
+    <a class="tab {{ 'active' if request.path == '/cctv' }}" href="/cctv">CCTV</a>
+    <a class="tab {{ 'active' if request.path == '/analisis' }}" href="/analisis">Analisis</a>
+  </nav>
+
+  {% block content %}{% endblock %}
+
+  <p class="note">Car Counter — Proyek Akhir Pengolahan Citra Digital</p>
+</body>
+</html>

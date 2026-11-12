@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="card" data-label="Modul 03" id="cctvCard" data-orientation="{{ stats.orientation }}" data-pos="{{ stats.line_pos }}" data-mode="{{ stats.vehicle_mode }}">
+  <h2>CCTV Real-time Stream</h2>
+  <p class="desc">// Live HLS (.m3u8) Stream + Deteksi &amp; Penghitungan Mobil (YOLOv8 + ByteTrack)</p>
+
+  <!-- Info Stream URL -->
+  <div style="margin-bottom:24px;border:3px solid var(--ink);background:var(--paper);padding:14px 18px;box-shadow:4px 4px 0 var(--ink);">
+    <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;background:var(--ink);color:var(--yellow);padding:3px 8px;display:inline-block;letter-spacing:1px;margin-bottom:6px;">
+      SOURCE STREAM (.M3U8)
+    </span>
+    <div style="font-family:'Courier New',monospace;font-size:0.85rem;font-weight:bold;word-break:break-all;">
+      {% if cctv_url %}
+        <span style="color:#00853d;">[ONLINE]</span> {{ cctv_url }}
+      {% else %}
+        <span style="color:var(--red);">[BELUM DIATUR]</span> Variabel <code style="background:var(--yellow);padding:1px 6px;border:1px solid var(--ink);">CCTV_URL</code> di <code>app.py</code> masih kosong. Silakan isi URL stream Anda.
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pesan Error Dinamis -->
+  <div id="cctvErrorBox" {% if not stats.error %}style="display:none;margin-bottom:24px;background:#ffeded;border:4px solid var(--red);padding:16px 20px;box-shadow:5px 5px 0 var(--ink);"{% else %}style="display:block;margin-bottom:24px;background:#ffeded;border:4px solid var(--red);padding:16px 20px;box-shadow:5px 5px 0 var(--ink);"{% endif %}>
+    <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.85rem;color:var(--red);letter-spacing:1px;" id="cctvErrorMsg">
+      [!] {{ stats.error if stats.error else 'Koneksi stream CCTV mengalami kendala.' }}
+    </span>
+  </div>
+
+  <!-- Panel Pengaturan Garis Deteksi (Neo-Brutalist Control Box) -->
+  <div style="margin-bottom:24px;border:3px solid var(--ink);background:#fff;padding:16px 20px;box-shadow:5px 5px 0 var(--ink);">
+    <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;background:var(--ink);color:var(--yellow);padding:3px 8px;display:inline-block;letter-spacing:1px;margin-bottom:12px;">
+      PENGATURAN POSISI &amp; ARAH GARIS DETEKSI
+    </span>
+
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center;">
+      <!-- Pilihan Orientasi Garis -->
+      <div>
+        <div style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;margin-bottom:6px;">ARAH GARIS:</div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="btnOriHoriz" class="preset-btn {{ 'selected' if stats.orientation == 'horizontal' else '' }}" style="padding:6px 14px;font-size:0.75rem;">
+            HORIZONTAL
+          </button>
+          <button type="button" id="btnOriVert" class="preset-btn {{ 'selected' if stats.orientation == 'vertical' else '' }}" style="padding:6px 14px;font-size:0.75rem;">
+            VERTIKAL
+          </button>
+        </div>
+      </div>
+
+      <!-- Slider Posisi Garis -->
+      <div style="flex:1;min-width:220px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;">POSISI GARIS:</span>
+          <span id="labelLinePos" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.8rem;background:var(--yellow);border:2px solid var(--ink);padding:1px 6px;">
+            {{ stats.line_pos }}%
+          </span>
+        </div>
+        <input
+          type="range"
+          id="sliderLinePos"
+          min="10"
+          max="90"
+          value="{{ stats.line_pos }}"
+          style="width:100%;height:10px;accent-color:var(--ink);cursor:pointer;"
+        >
+      </div>
+
+      <!-- Mode Kendaraan -->
+      <div>
+        <div style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;margin-bottom:6px;">DETEKSI:</div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="btnModeAll" class="preset-btn {{ 'selected' if stats.vehicle_mode == 'all' else '' }}" style="padding:6px 14px;font-size:0.75rem;">
+            SEMUA KENDARAAN
+          </button>
+          <button type="button" id="btnModeCar" class="preset-btn {{ 'selected' if stats.vehicle_mode == 'car' else '' }}" style="padding:6px 14px;font-size:0.75rem;">
+            MOBIL/BUS/TRUK
+          </button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-family:'Courier New',monospace;font-size:0.72rem;color:#444;">
+      // Tips: Jika kendaraan bergerak kiri &harr; kanan, pilih <b>VERTIKAL</b>. Geser slider agar garis tepat memotong jalan raya.
+    </div>
+  </div>
+
+  <!-- Panel Statistik Hitungan Live -->
+  <div class="hasil" style="margin-bottom:26px;background:var(--green);border:4px solid var(--ink);padding:22px;box-shadow:6px 6px 0 var(--ink);">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+      <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.8rem;background:var(--ink);color:#fff;padding:4px 10px;border:2px solid var(--ink);letter-spacing:1.5px;">
+        DATA PENGHITUNGAN REAL-TIME
+      </span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="cctvFpsBadge" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;padding:4px 8px;border:2px solid var(--ink);background:#fff;box-shadow:2px 2px 0 var(--ink);">
+          FPS: {{ stats.fps }}
+        </span>
+        {% if stats.is_connected %}
+        <span id="cctvStatusBadge" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;padding:4px 10px;border:2px solid var(--ink);background:var(--yellow);color:var(--ink);box-shadow:2px 2px 0 var(--ink);">
+          ● LIVE STREAMING
+        </span>
+        {% else %}
+        <span id="cctvStatusBadge" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.75rem;padding:4px 10px;border:2px solid var(--ink);background:var(--red);color:#fff;box-shadow:2px 2px 0 var(--ink);">
+          ○ DISCONNECTED
+        </span>
+        {% endif %}
+        <button type="button" id="btnResetCount" style="padding:6px 14px;font-size:0.75rem;background:#fff;color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);cursor:pointer;">
+          RESET
+        </button>
+      </div>
+    </div>
+
+    <div class="hasil-row" style="display:flex;gap:18px;flex-wrap:wrap;">
+      <div class="hasil-item" style="background:#fff;border:4px solid var(--ink);padding:16px 24px;box-shadow:5px 5px 0 var(--ink);min-width:150px;flex:1;">
+        <div class="label" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.72rem;letter-spacing:1.5px;background:var(--yellow);border:2px solid var(--ink);padding:1px 6px;display:inline-block;margin-bottom:6px;">MASUK</div>
+        <div id="countMasuk" style="font-size:2.6rem;line-height:1;letter-spacing:-2px;">{{ stats.masuk }}</div>
+      </div>
+      <div class="hasil-item" style="background:#fff;border:4px solid var(--ink);padding:16px 24px;box-shadow:5px 5px 0 var(--ink);min-width:150px;flex:1;">
+        <div class="label" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.72rem;letter-spacing:1.5px;background:var(--yellow);border:2px solid var(--ink);padding:1px 6px;display:inline-block;margin-bottom:6px;">KELUAR</div>
+        <div id="countKeluar" style="font-size:2.6rem;line-height:1;letter-spacing:-2px;">{{ stats.keluar }}</div>
+      </div>
+      <div class="hasil-item" style="background:#fff;border:4px solid var(--ink);padding:16px 24px;box-shadow:5px 5px 0 var(--ink);min-width:150px;flex:1;">
+        <div class="label" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.72rem;letter-spacing:1.5px;background:var(--yellow);border:2px solid var(--ink);padding:1px 6px;display:inline-block;margin-bottom:6px;">TOTAL</div>
+        <div id="countTotal" style="font-size:2.6rem;line-height:1;letter-spacing:-2px;">{{ stats.total }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video Player Live Stream MJPEG -->
+  <div class="panel" style="margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 0 12px;">
+      <span class="panel-label" style="margin:0;">Live Feed Stream (YOLOv8 + ByteTrack)</span>
+      <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.72rem;background:#fff;border:2px solid var(--ink);padding:3px 8px;">
+        STATUS: REALTIME FEED
+      </span>
+    </div>
+    <div class="panel-body" style="height:auto;padding:0;background:#1a1a1a;margin-top:10px;border-top:3px solid var(--ink);position:relative;">
+      <img
+        id="cctvVideoFeed"
+        src="{{ url_for('cctv_feed') }}"
+        alt="Live CCTV Feed"
+        style="width:100%;height:auto;display:block;min-height:320px;background:#111;object-fit:contain;"
+        onerror="handleFeedError()"
+      >
+    </div>
+  </div>
+</main>
+
+<script>
+  const elMasuk = document.getElementById('countMasuk');
+  const elKeluar = document.getElementById('countKeluar');
+  const elTotal = document.getElementById('countTotal');
+  const elBadge = document.getElementById('cctvStatusBadge');
+  const elFpsBadge = document.getElementById('cctvFpsBadge');
+  const elErrorBox = document.getElementById('cctvErrorBox');
+  const elErrorMsg = document.getElementById('cctvErrorMsg');
+  const btnReset = document.getElementById('btnResetCount');
+
+  const btnOriHoriz = document.getElementById('btnOriHoriz');
+  const btnOriVert = document.getElementById('btnOriVert');
+  const sliderLinePos = document.getElementById('sliderLinePos');
+  const labelLinePos = document.getElementById('labelLinePos');
+  const btnModeAll = document.getElementById('btnModeAll');
+  const btnModeCar = document.getElementById('btnModeCar');
+
+  const cctvCard = document.getElementById('cctvCard');
+  let currentOri = cctvCard ? (cctvCard.dataset.orientation || 'horizontal') : 'horizontal';
+  let currentPos = cctvCard ? (parseInt(cctvCard.dataset.pos, 10) || 50) : 50;
+  let currentMode = cctvCard ? (cctvCard.dataset.mode || 'all') : 'all';
+
+  function handleFeedError() {
+    elBadge.style.background = 'var(--red)';
+    elBadge.style.color = '#fff';
+    elBadge.textContent = '○ STREAM OFFLINE';
+    elErrorBox.style.display = 'block';
+    elErrorMsg.textContent = '[!] Gagal memuat video stream. Pastikan CCTV_URL di app.py aktif.';
+  }
+
+  // Kirim update konfigurasi garis ke server
+  async function sendConfigUpdate(newOri, newPos, newMode) {
+    if (newOri) currentOri = newOri;
+    if (newPos) currentPos = newPos;
+    if (newMode) currentMode = newMode;
+
+    try {
+      const url = `/cctv_config?orientation=${currentOri}&line_pos=${currentPos}&vehicle_mode=${currentMode}`;
+      await fetch(url, { method: 'POST' });
+    } catch (e) {
+      console.warn("Gagal update konfigurasi garis:", e);
+    }
+  }
+
+  // Tombol Orientasi
+  btnOriHoriz.addEventListener('click', () => {
+    btnOriHoriz.classList.add('selected');
+    btnOriVert.classList.remove('selected');
+    sendConfigUpdate('horizontal', null, null);
+  });
+
+  btnOriVert.addEventListener('click', () => {
+    btnOriVert.classList.add('selected');
+    btnOriHoriz.classList.remove('selected');
+    sendConfigUpdate('vertical', null, null);
+  });
+
+  // Slider Posisi Garis
+  sliderLinePos.addEventListener('input', (e) => {
+    const val = e.target.value;
+    labelLinePos.textContent = val + '%';
+  });
+
+  sliderLinePos.addEventListener('change', (e) => {
+    sendConfigUpdate(null, e.target.value, null);
+  });
+
+  // Tombol Filter Kendaraan
+  btnModeAll.addEventListener('click', () => {
+    btnModeAll.classList.add('selected');
+    btnModeCar.classList.remove('selected');
+    sendConfigUpdate(null, null, 'all');
+  });
+
+  btnModeCar.addEventListener('click', () => {
+    btnModeCar.classList.add('selected');
+    btnModeAll.classList.remove('selected');
+    sendConfigUpdate(null, null, 'car');
+  });
+
+  // Polling data hitungan realtime setiap 1 detik
+  async function updateCctvStats() {
+    try {
+      const res = await fetch('/cctv_data');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      elMasuk.textContent = data.masuk;
+      elKeluar.textContent = data.keluar;
+      elTotal.textContent = data.total;
+
+      if (data.fps !== undefined) {
+        elFpsBadge.textContent = 'FPS: ' + data.fps;
+      }
+
+      if (data.is_connected) {
+        elBadge.style.background = 'var(--yellow)';
+        elBadge.style.color = 'var(--ink)';
+        elBadge.textContent = '● LIVE STREAMING';
+        if (!data.error) {
+          elErrorBox.style.display = 'none';
+        }
+      } else if (data.error) {
+        elBadge.style.background = 'var(--red)';
+        elBadge.style.color = '#fff';
+        elBadge.textContent = '○ STREAM ERROR';
+        elErrorBox.style.display = 'block';
+        elErrorMsg.textContent = '[!] ' + data.error;
+      }
+    } catch (e) {
+      console.warn("Polling error:", e);
+    }
+  }
+
+  // Tombol reset hitungan
+  btnReset.addEventListener('click', async () => {
+    try {
+      const res = await fetch('/cctv_reset', { method: 'POST' });
+      if (res.ok) {
+        elMasuk.textContent = 0;
+        elKeluar.textContent = 0;
+        elTotal.textContent = 0;
+      }
+    } catch (e) {
+      console.error("Gagal reset hitungan:", e);
+    }
+  });
+
+  // Jalankan segera saat halaman dibuka, lalu ulangi tiap 1 detik
+  updateCctvStats();
+  setInterval(updateCctvStats, 1000);
+</script>
+{% endblock %}

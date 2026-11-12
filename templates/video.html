@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="card" data-label="Modul 02">
+  <h2>Upload Video</h2>
+  <p class="desc">// Hitung mobil yang melintas garis</p>
+
+  <form action="/video" method="POST" enctype="multipart/form-data">
+    <input type="file" name="file" accept="video/*" required>
+    <button type="submit">Hitung Mobil</button>
+  </form>
+
+  {% if error %}
+  <div class="error-box" style="margin-top:24px;background:#ffeded;border:4px solid var(--red);padding:16px 20px;box-shadow:5px 5px 0 var(--ink);">
+    <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.85rem;color:var(--red);letter-spacing:1px;">[!] {{ error }}</span>
+  </div>
+  {% endif %}
+
+  {% if hasil %}
+  <div class="hasil" style="margin-top:26px;background:var(--green);border:4px solid var(--ink);padding:22px;box-shadow:6px 6px 0 var(--ink);">
+    <div class="hasil-row" style="display:flex;gap:18px;flex-wrap:wrap;">
+      <div class="hasil-item" style="background:#fff;border:4px solid var(--ink);padding:16px 24px;box-shadow:5px 5px 0 var(--ink);min-width:150px;">
+        <div class="label" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.72rem;letter-spacing:1.5px;background:var(--yellow);border:2px solid var(--ink);padding:1px 6px;display:inline-block;margin-bottom:6px;">MASUK</div>
+        <div style="font-size:2.6rem;line-height:1;letter-spacing:-2px;">{{ hasil.masuk }}</div>
+      </div>
+      <div class="hasil-item" style="background:#fff;border:4px solid var(--ink);padding:16px 24px;box-shadow:5px 5px 0 var(--ink);min-width:150px;">
+        <div class="label" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.72rem;letter-spacing:1.5px;background:var(--yellow);border:2px solid var(--ink);padding:1px 6px;display:inline-block;margin-bottom:6px;">KELUAR</div>
+        <div style="font-size:2.6rem;line-height:1;letter-spacing:-2px;">{{ hasil.keluar }}</div>
+      </div>
+      <div class="hasil-item" style="background:#fff;border:4px solid var(--ink);padding:16px 24px;box-shadow:5px 5px 0 var(--ink);min-width:150px;">
+        <div class="label" style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.72rem;letter-spacing:1.5px;background:var(--yellow);border:2px solid var(--ink);padding:1px 6px;display:inline-block;margin-bottom:6px;">TOTAL</div>
+        <div style="font-size:2.6rem;line-height:1;letter-spacing:-2px;">{{ hasil.total }}</div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:20px;">
+      <span class="panel-label">Hasil Pemrosesan</span>
+      <div class="panel-body" style="height:auto;padding:0;background:#fff;">
+        <video src="{{ hasil.video_url }}" controls style="width:100%;display:block;"></video>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

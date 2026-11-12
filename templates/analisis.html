@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="card" data-label="Modul 04">
+  <h2>Analisis Citra</h2>
+  <p class="desc">// Upload gambar, pilih atau ubah kernel, lalu terapkan</p>
+
+  <form action="/analisis" method="POST" enctype="multipart/form-data">
+    <input type="file" name="file" accept="image/*" required>
+
+    <div class="kernel-section">
+      <span class="kernel-title">Kernel Konvolusi 3×3</span>
+
+      <div class="presets">
+        <button type="button" class="preset-btn selected" data-preset="sharpen">Sharpen</button>
+        <button type="button" class="preset-btn" data-preset="blur">Blur</button>
+        <button type="button" class="preset-btn" data-preset="edge">Edge</button>
+        <button type="button" class="preset-btn" data-preset="identity">Identity</button>
+      </div>
+
+      <div class="kernel-wrap">
+        <div class="kernel-grid" id="kernelGrid">
+          {% for i in range(9) %}
+          <input type="text" inputmode="decimal" name="k{{ i }}" value="{{ kernel[i] }}">
+          {% endfor %}
+        </div>
+        <div class="kernel-info">
+          Preset aktif: <span class="val" id="presetName">SHARPEN</span><br>
+          Jumlah nilai: <span class="val" id="sumVal">1</span><br>
+          <span style="font-weight:normal;text-transform:none;letter-spacing:0;font-size:0.72rem;">
+            Klik kotak untuk mengubah nilai secara manual.
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" style="margin-top:24px;">Terapkan Konvolusi</button>
+  </form>
+
+  {% if error %}
+  <div class="error-box" style="margin-top:24px;background:#ffeded;border:4px solid var(--red);padding:16px 20px;box-shadow:5px 5px 0 var(--ink);">
+    <span style="font-family:'Courier New',monospace;font-weight:bold;font-size:0.85rem;color:var(--red);letter-spacing:1px;">[!] {{ error }}</span>
+  </div>
+  {% endif %}
+
+  {% if hasil %}
+  <div class="grid-analisis" style="margin-top:30px;">
+    <div class="panel full">
+      <span class="panel-label">Histogram RGB</span>
+      <div class="panel-body" style="height:auto;padding:0;background:#fff;">
+        <img src="{{ hasil.histogram }}" alt="Histogram" style="width:100%;display:block;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Citra Asli</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.asli }}" alt="Asli" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Grayscale</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.grayscale }}" alt="Grayscale" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Konvolusi Manual 3×3</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.konv_manual }}" alt="Konvolusi manual" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Konvolusi Library (filter2D)</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.konv_lib }}" alt="Konvolusi library" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Filter Blur (Mean)</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.blur }}" alt="Blur" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Filter Sharpen</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.sharpen }}" alt="Sharpen" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Deteksi Tepi Sobel</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.sobel }}" alt="Sobel" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="panel-label">Deteksi Tepi Canny</span>
+      <div class="panel-body" style="padding:0;background:#fff;">
+        <img src="{{ hasil.canny }}" alt="Canny" style="width:100%;height:100%;object-fit:contain;">
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</main>
+
+<script>
+  const PRESETS = {
+    sharpen:  { label: "SHARPEN",  values: [0, -1, 0, -1, 5, -1, 0, -1, 0] },
+    blur:     { label: "BLUR",     values: [0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.111] },
+    edge:     { label: "EDGE",     values: [0, 1, 0, 1, -4, 1, 0, 1, 0] },
+    identity: { label: "IDENTITY", values: [0, 0, 0, 0, 1, 0, 0, 0, 0] }
+  };
+
+  const inputs = document.querySelectorAll('#kernelGrid input');
+  const presetName = document.getElementById('presetName');
+  const sumVal = document.getElementById('sumVal');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  function updateSum() {
+    let sum = 0;
+    inputs.forEach(inp => {
+      const v = parseFloat(inp.value);
+      if (!isNaN(v)) sum += v;
+    });
+    sumVal.textContent = Number.isInteger(sum) ? sum : sum.toFixed(3);
+  }
+
+  inputs.forEach(inp => {
+    inp.addEventListener('input', () => {
+      presetBtns.forEach(b => b.classList.remove('selected'));
+      presetName.textContent = 'MANUAL';
+      updateSum();
+    });
+  });
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      presetBtns.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      const p = PRESETS[btn.dataset.preset];
+      inputs.forEach((inp, i) => inp.value = p.values[i]);
+      presetName.textContent = p.label;
+      updateSum();
+    });
+  });
+
+  updateSum();
+</script>
+{% endblock %}
