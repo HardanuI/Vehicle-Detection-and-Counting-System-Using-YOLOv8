@@ -37,3 +37,8 @@ desktop.ini
  *.onnx
  *.mp4
  *.avi
+
+# Mengabaikan semua isi folder uploads
+static/uploads/*
+# Kecuali file .gitkeep agar foldernya tetap ada
+!static/uploads/.gitkeep
