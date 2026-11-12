@@ -1,3 +1,5 @@
+import base64
+import io
 import os
 import tempfile
 import cv2
@@ -23,24 +25,18 @@ def _read_image(path):
     return cv2.imread(path)
 
 
-def _write_image(path, img):
-    """Menyimpan gambar secara aman termasuk path non-ASCII di Windows."""
-    try:
-        ext = os.path.splitext(path)[1]
-        success, buf = cv2.imencode(ext, img)
-        if success:
-            buf.tofile(path)
-            return True
-    except Exception:
-        pass
-    return cv2.imwrite(path, img)
+def image_to_base64(img_array, format=".jpg"):
+    """Mengubah array NumPy OpenCV menjadi string Base64 di dalam memori RAM."""
+    success, buf = cv2.imencode(format, img_array)
+    if not success:
+        return ""
+    return base64.b64encode(buf.tobytes()).decode("utf-8")
 
 
-def _simpan_histogram(gray_or_rgb, output_path):
-    """Simpan grafik histogram RGB ke file."""
-    img = _read_image(gray_or_rgb)
+def _buat_histogram_base64(img):
+    """Buat grafik histogram RGB di memori menggunakan io.BytesIO dan kembalikan string Base64."""
     if img is None:
-        return
+        return ""
     warna = ("b", "g", "r")  # OpenCV BGR
     plt.figure(figsize=(7, 3.2), dpi=110)
     for i, col in enumerate(warna):
@@ -51,8 +47,12 @@ def _simpan_histogram(gray_or_rgb, output_path):
     plt.ylabel("Jumlah piksel")
     plt.title("Histogram RGB")
     plt.tight_layout()
-    plt.savefig(output_path)
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png")
     plt.close()
+    buf.seek(0)
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
 def konvolusi_manual(gray, kernel):
@@ -71,77 +71,59 @@ def konvolusi_manual(gray, kernel):
     return hasil
 
 
-def analisis_gambar(input_path, upload_dir):
-    """Jalankan semua analisis, simpan hasil ke upload_dir. Return dict path."""
+def analisis_gambar(input_path):
+    """Jalankan semua analisis citra di memori RAM dan kembalikan dict berisi string Base64."""
     img = _read_image(input_path)
     if img is None:
         return None
 
-    base = os.path.splitext(os.path.basename(input_path))[0]
     hasil = {}
 
     # Grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray_path = os.path.join(upload_dir, f"{base}_gray.jpg")
-    _write_image(gray_path, gray)
-    hasil["grayscale"] = os.path.basename(gray_path)
+    hasil["grayscale"] = image_to_base64(gray, ".jpg")
 
-    # Histogram RGB
-    hist_path = os.path.join(upload_dir, f"{base}_hist.png")
-    _simpan_histogram(input_path, hist_path)
-    hasil["histogram"] = os.path.basename(hist_path)
+    # Histogram RGB (PNG Base64 via io.BytesIO)
+    hasil["histogram"] = _buat_histogram_base64(img)
 
-    # Filter blur & sharpen (contoh tetap)
+    # Filter blur & sharpen
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    blur_path = os.path.join(upload_dir, f"{base}_blur.jpg")
-    _write_image(blur_path, blur)
-    hasil["blur"] = os.path.basename(blur_path)
+    hasil["blur"] = image_to_base64(blur, ".jpg")
 
     kernel_sharpen = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
     sharpen = cv2.filter2D(gray, -1, kernel_sharpen)
-    sharpen_path = os.path.join(upload_dir, f"{base}_sharpen.jpg")
-    _write_image(sharpen_path, sharpen)
-    hasil["sharpen"] = os.path.basename(sharpen_path)
+    hasil["sharpen"] = image_to_base64(sharpen, ".jpg")
 
     # Sobel
     sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
     sobel = cv2.magnitude(sobel_x, sobel_y)
     sobel = np.clip(sobel, 0, 255).astype(np.uint8)
-    sobel_path = os.path.join(upload_dir, f"{base}_sobel.jpg")
-    _write_image(sobel_path, sobel)
-    hasil["sobel"] = os.path.basename(sobel_path)
+    hasil["sobel"] = image_to_base64(sobel, ".jpg")
 
     # Canny
     canny = cv2.Canny(gray, 100, 200)
-    canny_path = os.path.join(upload_dir, f"{base}_canny.jpg")
-    _write_image(canny_path, canny)
-    hasil["canny"] = os.path.basename(canny_path)
+    hasil["canny"] = image_to_base64(canny, ".jpg")
 
     return hasil
 
 
-def konvolusi_kernel(input_path, upload_dir, kernel_values):
-    """Hitung konvolusi manual & library dengan kernel dari user."""
+def konvolusi_kernel(input_path, kernel_values):
+    """Hitung konvolusi manual & library di memori RAM dan kembalikan dict berisi string Base64."""
     img = _read_image(input_path)
     if img is None:
         return None
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    base = os.path.splitext(os.path.basename(input_path))[0]
     kernel = np.array(kernel_values, dtype=np.float32).reshape(3, 3)
 
     # Manual
     manual = konvolusi_manual(gray, kernel)
-    manual_path = os.path.join(upload_dir, f"{base}_konv_manual.jpg")
-    _write_image(manual_path, manual)
 
     # Library
     library = cv2.filter2D(gray, -1, kernel)
-    library_path = os.path.join(upload_dir, f"{base}_konv_lib.jpg")
-    _write_image(library_path, library)
 
     return {
-        "manual": os.path.basename(manual_path),
-        "library": os.path.basename(library_path),
+        "manual": image_to_base64(manual, ".jpg"),
+        "library": image_to_base64(library, ".jpg"),
     }

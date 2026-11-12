@@ -12,7 +12,7 @@ from cctv import generate_cctv_frames, get_cctv_stats, reset_cctv_counts, update
 # ============================================================
 # Masukkan URL stream HLS (.m3u8) Anda di sini.
 # Contoh: CCTV_URL = "https://example.com/live/cctv.m3u8"
-CCTV_URL = "https://cctvjss.jogjakota.go.id/atcs/ATCS_Utara-Timur_Gardena_Jl_Urip%20Sumoharjo_V_Timur.stream/chunklist_w722705829.m3u8"
+CCTV_URL = "https://cctvjss.jogjakota.go.id/kotabaru/ANPR-Jl-FM-Noto-Raminten.stream/chunklist_w852002735.m3u8"
 
 app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join("static", "uploads")
@@ -113,10 +113,15 @@ def cctv():
 
 @app.route("/cctv_feed")
 def cctv_feed():
-    return Response(
+    response = Response(
         stream_with_context(generate_cctv_frames(CCTV_URL)),
-        mimetype="multipart/x-mixed-replace; boundary=frame"
+        mimetype="multipart/x-mixed-replace; boundary=frame",
     )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 @app.route("/cctv_data")
@@ -162,20 +167,20 @@ def analisis():
             f.save(in_path)
 
             try:
-                hasil_analisis = analisis_gambar(in_path, UPLOAD_FOLDER)
-                hasil_konvolusi = konvolusi_kernel(in_path, UPLOAD_FOLDER, kernel_values)
+                hasil_analisis = analisis_gambar(in_path)
+                hasil_konvolusi = konvolusi_kernel(in_path, kernel_values)
 
                 if hasil_analisis and hasil_konvolusi:
                     hasil = {
                         "asli": _url(nama),
-                        "grayscale": _url(hasil_analisis["grayscale"]),
-                        "histogram": _url(hasil_analisis["histogram"]),
-                        "blur": _url(hasil_analisis["blur"]),
-                        "sharpen": _url(hasil_analisis["sharpen"]),
-                        "sobel": _url(hasil_analisis["sobel"]),
-                        "canny": _url(hasil_analisis["canny"]),
-                        "konv_manual": _url(hasil_konvolusi["manual"]),
-                        "konv_lib": _url(hasil_konvolusi["library"]),
+                        "grayscale": hasil_analisis["grayscale"],
+                        "histogram": hasil_analisis["histogram"],
+                        "blur": hasil_analisis["blur"],
+                        "sharpen": hasil_analisis["sharpen"],
+                        "sobel": hasil_analisis["sobel"],
+                        "canny": hasil_analisis["canny"],
+                        "konv_manual": hasil_konvolusi["manual"],
+                        "konv_lib": hasil_konvolusi["library"],
                     }
                 else:
                     error = "Gagal menganalisis gambar. Format tidak didukung atau file rusak."
@@ -188,5 +193,5 @@ def analisis():
 
 if __name__ == "__main__":
     from waitress import serve
-    print("Server berjalan di http://127.0.0.1:5000")
-    serve(app, host="127.0.0.1", port=5000)
+    print("Server berjalan di http://127.0.0.1:5000 (host=0.0.0.0, port=5000, threads=8)")
+    serve(app, host="0.0.0.0", port=5000, threads=8)
